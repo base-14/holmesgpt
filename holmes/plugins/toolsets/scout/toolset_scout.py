@@ -112,6 +112,9 @@ class ScoutToolset(RemoteMCPToolset):
             tags=[ToolsetTag.CORE],
             enabled=False,
         )
+        self._load_llm_instructions_from_file(
+            os.path.dirname(__file__), "toolset_scout.jinja2"
+        )
 
     def model_post_init(self, __context: Any) -> None:
         self.prerequisites = [

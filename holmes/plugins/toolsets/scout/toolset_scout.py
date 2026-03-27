@@ -1,17 +1,13 @@
 import logging
 import os
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import requests as http_requests
 from pydantic import Field
 
-from holmes.core.tools import (
-    CallablePrerequisite,
-    ToolsetTag,
-)
+from holmes.core.tools import ToolsetTag
 from holmes.plugins.toolsets.mcp.toolset_mcp import (
-    MCPConfig,
     MCPMode,
     RemoteMCPToolset,
 )
@@ -115,11 +111,6 @@ class ScoutToolset(RemoteMCPToolset):
         self._load_llm_instructions_from_file(
             os.path.dirname(__file__), "toolset_scout.jinja2"
         )
-
-    def model_post_init(self, __context: Any) -> None:
-        self.prerequisites = [
-            CallablePrerequisite(callable=self.prerequisites_callable)
-        ]
 
     def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
         if not config:

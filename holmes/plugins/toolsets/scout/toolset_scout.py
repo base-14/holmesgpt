@@ -98,3 +98,77 @@ def _discover_and_obtain_token(api_url: str, username: str, password: str, verif
         raise ValueError("Keycloak response did not contain an access_token")
 
     return access_token
+
+
+class ScoutToolset(RemoteMCPToolset):
+    config_classes: ClassVar[list[Type[ScoutConfig]]] = [ScoutConfig]
+
+    def __init__(self):
+        super().__init__(
+            name="base14/scout",
+            description="Base14 Scout observability platform - query services, traces, logs, metrics, and alerts",
+            icon_url="https://scout.base14.io/favicon.ico",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/base14-scout/",
+            tags=[ToolsetTag.CORE],
+            enabled=False,
+        )
+
+    def model_post_init(self, __context: Any) -> None:
+        self.prerequisites = [
+            CallablePrerequisite(callable=self.prerequisites_callable)
+        ]
+
+    def prerequisites_callable(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+        if not config:
+            config = {}
+
+        # Fall back to environment variables
+        if not config.get("api_url"):
+            env_url = os.environ.get("SCOUT_API_URL")
+            if env_url:
+                config["api_url"] = env_url
+        if not config.get("api_token"):
+            env_token = os.environ.get("SCOUT_API_TOKEN")
+            if env_token:
+                config["api_token"] = env_token
+        if not config.get("username"):
+            env_user = os.environ.get("SCOUT_USERNAME")
+            if env_user:
+                config["username"] = env_user
+        if not config.get("password"):
+            env_pass = os.environ.get("SCOUT_PASSWORD")
+            if env_pass:
+                config["password"] = env_pass
+
+        # Validate config
+        try:
+            scout_config = ScoutConfig(**config)
+        except Exception as e:
+            return False, f"Invalid Scout config: {e}"
+
+        # Resolve authentication to a Bearer token
+        bearer_token: Optional[str] = None
+        if scout_config.api_token:
+            bearer_token = scout_config.api_token
+        elif scout_config.username and scout_config.password:
+            try:
+                bearer_token = _discover_and_obtain_token(
+                    api_url=scout_config.api_url,
+                    username=scout_config.username,
+                    password=scout_config.password,
+                    verify_ssl=scout_config.verify_ssl,
+                )
+            except Exception as e:
+                return False, f"Keycloak authentication failed: {e}"
+        else:
+            return False, "Scout requires either api_token or username/password for authentication."
+
+        # Build MCPConfig dict and delegate to parent for MCP session + tool discovery
+        mcp_config = {
+            "url": scout_config.api_url,
+            "mode": scout_config.mode.value,
+            "verify_ssl": scout_config.verify_ssl,
+            "headers": {"Authorization": f"Bearer {bearer_token}"},
+        }
+
+        return super().prerequisites_callable(mcp_config)

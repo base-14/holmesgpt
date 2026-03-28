@@ -11,17 +11,17 @@ class TestScoutConfig:
         )
         assert config.api_url == "https://scout.example.com/mcp/v1"
         assert config.api_token == "test-token-123"
-        assert config.username is None
-        assert config.password is None
+        assert config.client_id is None
+        assert config.client_secret is None
 
-    def test_valid_config_with_credentials(self):
+    def test_valid_config_with_client_credentials(self):
         config = ScoutConfig(
             api_url="https://scout.example.com/mcp/v1",
-            username="admin",
-            password="secret",
+            client_id="my-client",
+            client_secret="my-secret",
         )
-        assert config.username == "admin"
-        assert config.password == "secret"
+        assert config.client_id == "my-client"
+        assert config.client_secret == "my-secret"
         assert config.api_token is None
 
     def test_api_url_required(self):
@@ -54,18 +54,18 @@ class TestScoutToolset:
 
     def test_prerequisites_fails_without_auth(self, monkeypatch):
         monkeypatch.delenv("SCOUT_API_TOKEN", raising=False)
-        monkeypatch.delenv("SCOUT_USERNAME", raising=False)
-        monkeypatch.delenv("SCOUT_PASSWORD", raising=False)
+        monkeypatch.delenv("SCOUT_CLIENT_ID", raising=False)
+        monkeypatch.delenv("SCOUT_CLIENT_SECRET", raising=False)
         toolset = ScoutToolset()
         ok, msg = toolset.prerequisites_callable({"api_url": "https://scout.example.com/mcp/v1"})
         assert ok is False
-        assert "api_token" in msg or "username" in msg
+        assert "api_token" in msg or "client_id" in msg
 
     def test_prerequisites_fails_with_empty_config(self, monkeypatch):
         monkeypatch.delenv("SCOUT_API_URL", raising=False)
         monkeypatch.delenv("SCOUT_API_TOKEN", raising=False)
-        monkeypatch.delenv("SCOUT_USERNAME", raising=False)
-        monkeypatch.delenv("SCOUT_PASSWORD", raising=False)
+        monkeypatch.delenv("SCOUT_CLIENT_ID", raising=False)
+        monkeypatch.delenv("SCOUT_CLIENT_SECRET", raising=False)
         toolset = ScoutToolset()
         ok, msg = toolset.prerequisites_callable({})
         assert ok is False

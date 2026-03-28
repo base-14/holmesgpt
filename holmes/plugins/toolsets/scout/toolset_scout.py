@@ -15,8 +15,6 @@ from holmes.utils.pydantic_utils import ToolsetConfig
 
 logger = logging.getLogger(__name__)
 
-TOOLSET_CONFIG_MISSING_ERROR = "Scout config not provided. Set api_url and either api_token or username/password."
-
 
 class ScoutConfig(ToolsetConfig):
     api_url: str = Field(
@@ -29,15 +27,15 @@ class ScoutConfig(ToolsetConfig):
         title="API Token",
         description="Pre-obtained Bearer token for authentication",
     )
-    username: Optional[str] = Field(
+    client_id: Optional[str] = Field(
         default=None,
-        title="Username",
-        description="Keycloak username for OAuth authentication",
+        title="Client ID",
+        description="Keycloak OAuth client ID for client_credentials grant",
     )
-    password: Optional[str] = Field(
+    client_secret: Optional[str] = Field(
         default=None,
-        title="Password",
-        description="Keycloak password for OAuth authentication",
+        title="Client Secret",
+        description="Keycloak OAuth client secret for client_credentials grant",
     )
     verify_ssl: bool = Field(
         default=True,
@@ -51,12 +49,14 @@ class ScoutConfig(ToolsetConfig):
     )
 
 
-def _discover_and_obtain_token(api_url: str, username: str, password: str, verify_ssl: bool) -> str:
-    """Discover Keycloak endpoint from Scout's well-known URL and exchange credentials for a JWT.
+def _obtain_token_via_client_credentials(
+    api_url: str, client_id: str, client_secret: str, verify_ssl: bool
+) -> str:
+    """Discover Keycloak token endpoint and obtain a JWT via client_credentials grant.
 
-    1. GET the well-known OAuth metadata from Scout
-    2. Extract the authorization server (Keycloak token endpoint)
-    3. POST a resource-owner password grant to obtain an access token
+    1. GET the well-known OAuth metadata from Scout to find the Keycloak realm
+    2. GET the OpenID configuration to find the token endpoint
+    3. POST a client_credentials grant to obtain an access token
     """
     parsed = urlparse(api_url)
     well_known_path = f"/.well-known/oauth-protected-resource{parsed.path}"
@@ -74,13 +74,13 @@ def _discover_and_obtain_token(api_url: str, username: str, password: str, verif
     auth_server_url = auth_servers[0].rstrip("/")
     token_url = f"{auth_server_url}/protocol/openid-connect/token"
 
-    logger.debug(f"Exchanging credentials at {token_url}")
+    logger.debug(f"Requesting token via client_credentials at {token_url}")
     token_resp = http_requests.post(
         token_url,
         data={
-            "grant_type": "password",
-            "username": username,
-            "password": password,
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
             "scope": "openid profile email",
         },
         verify=verify_ssl,
@@ -125,14 +125,14 @@ class ScoutToolset(RemoteMCPToolset):
             env_token = os.environ.get("SCOUT_API_TOKEN")
             if env_token:
                 config["api_token"] = env_token
-        if not config.get("username"):
-            env_user = os.environ.get("SCOUT_USERNAME")
-            if env_user:
-                config["username"] = env_user
-        if not config.get("password"):
-            env_pass = os.environ.get("SCOUT_PASSWORD")
-            if env_pass:
-                config["password"] = env_pass
+        if not config.get("client_id"):
+            env_cid = os.environ.get("SCOUT_CLIENT_ID")
+            if env_cid:
+                config["client_id"] = env_cid
+        if not config.get("client_secret"):
+            env_csec = os.environ.get("SCOUT_CLIENT_SECRET")
+            if env_csec:
+                config["client_secret"] = env_csec
 
         # Validate config
         try:
@@ -144,18 +144,18 @@ class ScoutToolset(RemoteMCPToolset):
         bearer_token: Optional[str] = None
         if scout_config.api_token:
             bearer_token = scout_config.api_token
-        elif scout_config.username and scout_config.password:
+        elif scout_config.client_id and scout_config.client_secret:
             try:
-                bearer_token = _discover_and_obtain_token(
+                bearer_token = _obtain_token_via_client_credentials(
                     api_url=scout_config.api_url,
-                    username=scout_config.username,
-                    password=scout_config.password,
+                    client_id=scout_config.client_id,
+                    client_secret=scout_config.client_secret,
                     verify_ssl=scout_config.verify_ssl,
                 )
             except Exception as e:
                 return False, f"Keycloak authentication failed: {e}"
         else:
-            return False, "Scout requires either api_token or username/password for authentication."
+            return False, "Scout requires either api_token or client_id/client_secret for authentication."
 
         # Build MCPConfig dict and delegate to parent for MCP session + tool discovery
         mcp_config = {

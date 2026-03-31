@@ -1,6 +1,6 @@
-# Base14 Scout
+# base14 Scout
 
-Connect HolmesGPT to the Base14 Scout observability platform for comprehensive access to services, traces, logs, metrics, and alerts via MCP.
+Connect HolmesGPT to the base14 Scout observability platform for comprehensive access to services, traces, logs, metrics, and alerts via MCP.
 
 ## Quick Start
 

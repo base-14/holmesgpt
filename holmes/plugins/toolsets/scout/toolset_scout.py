@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ScoutConfig(ToolsetConfig):
     api_url: str = Field(
         title="API URL",
-        description="Base14 Scout MCP endpoint URL",
+        description="base14 Scout MCP endpoint URL",
         examples=["https://scout.example.com/mcp/v1"],
     )
     api_token: Optional[str] = Field(
@@ -102,7 +102,7 @@ class ScoutToolset(RemoteMCPToolset):
     def __init__(self):
         super().__init__(
             name="base14/scout",
-            description="Base14 Scout observability platform - query services, traces, logs, metrics, and alerts",
+            description="base14 Scout observability platform - query services, traces, logs, metrics, and alerts",
             icon_url="https://scout.base14.io/favicon.ico",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/base14-scout/",
             tags=[ToolsetTag.CORE],

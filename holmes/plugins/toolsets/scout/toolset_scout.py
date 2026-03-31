@@ -30,12 +30,12 @@ class ScoutConfig(ToolsetConfig):
     client_id: Optional[str] = Field(
         default=None,
         title="Client ID",
-        description="Keycloak OAuth client ID for client_credentials grant",
+        description="OAuth client ID for client_credentials grant",
     )
     client_secret: Optional[str] = Field(
         default=None,
         title="Client Secret",
-        description="Keycloak OAuth client secret for client_credentials grant",
+        description="OAuth client secret for client_credentials grant",
     )
     verify_ssl: bool = Field(
         default=True,
@@ -52,17 +52,17 @@ class ScoutConfig(ToolsetConfig):
 def _obtain_token_via_client_credentials(
     api_url: str, client_id: str, client_secret: str, verify_ssl: bool
 ) -> str:
-    """Discover Keycloak token endpoint and obtain a JWT via client_credentials grant.
+    """Discover the OAuth token endpoint and obtain a JWT via client_credentials grant.
 
-    1. GET the well-known OAuth metadata from Scout to find the Keycloak realm
-    2. GET the OpenID configuration to find the token endpoint
+    1. GET the well-known OAuth metadata from Scout to find the authorization server
+    2. Derive the token endpoint from the authorization server URL
     3. POST a client_credentials grant to obtain an access token
     """
     parsed = urlparse(api_url)
     well_known_path = f"/.well-known/oauth-protected-resource{parsed.path}"
     well_known_url = f"{parsed.scheme}://{parsed.netloc}{well_known_path}"
 
-    logger.debug(f"Discovering Keycloak endpoint from {well_known_url}")
+    logger.debug(f"Discovering OAuth endpoint from {well_known_url}")
     resp = http_requests.get(well_known_url, verify=verify_ssl, timeout=10)
     resp.raise_for_status()
     metadata = resp.json()
@@ -91,7 +91,7 @@ def _obtain_token_via_client_credentials(
 
     access_token = token_data.get("access_token")
     if not access_token:
-        raise ValueError("Keycloak response did not contain an access_token")
+        raise ValueError("OAuth token response did not contain an access_token")
 
     return access_token
 
@@ -153,7 +153,7 @@ class ScoutToolset(RemoteMCPToolset):
                     verify_ssl=scout_config.verify_ssl,
                 )
             except Exception as e:
-                return False, f"Keycloak authentication failed: {e}"
+                return False, f"OAuth authentication failed: {e}"
         else:
             return False, "Scout requires either api_token or client_id/client_secret for authentication."
 

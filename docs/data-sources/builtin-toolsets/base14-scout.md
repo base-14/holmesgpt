@@ -9,7 +9,7 @@ Connect HolmesGPT to the Base14 Scout observability platform for comprehensive a
 You need your Scout MCP endpoint URL and either:
 
 - **API Token**: A pre-obtained Bearer token
-- **Client ID + Client Secret**: Keycloak OAuth credentials for client_credentials grant
+- **Client ID + Client Secret**: OAuth credentials for client_credentials grant
 
 ### 2. Configure HolmesGPT
 
@@ -86,13 +86,13 @@ toolsets:
 | Variable | Description |
 |----------|-------------|
 | `SCOUT_API_URL` | Scout MCP endpoint URL |
-| `SCOUT_CLIENT_ID` | Keycloak OAuth client ID |
-| `SCOUT_CLIENT_SECRET` | Keycloak OAuth client secret |
+| `SCOUT_CLIENT_ID` | OAuth client ID |
+| `SCOUT_CLIENT_SECRET` | OAuth client secret |
 | `SCOUT_API_TOKEN` | Pre-obtained Bearer token |
 
 ## Authentication
 
-**Client credentials** (recommended): The toolset auto-discovers the Keycloak token endpoint from Scout's `/.well-known/oauth-protected-resource` URL, then exchanges `client_id`/`client_secret` for a JWT via the `client_credentials` grant.
+**Client credentials** (recommended): The toolset auto-discovers the OAuth token endpoint from Scout's `/.well-known/oauth-protected-resource` URL, then exchanges `client_id`/`client_secret` for a JWT via the `client_credentials` grant.
 
 **Direct token**: If you already have a Bearer token, pass it via `api_token` and skip the OAuth flow.
 

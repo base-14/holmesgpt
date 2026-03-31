@@ -55,7 +55,7 @@ def _obtain_token_via_client_credentials(
     """Discover the OAuth token endpoint and obtain a JWT via client_credentials grant.
 
     1. GET the well-known OAuth metadata from Scout to find the authorization server
-    2. Derive the token endpoint from the authorization server URL
+    2. GET the OIDC configuration to discover the token endpoint
     3. POST a client_credentials grant to obtain an access token
     """
     parsed = urlparse(api_url)
@@ -72,7 +72,17 @@ def _obtain_token_via_client_credentials(
         raise ValueError(f"No authorization_servers found in well-known metadata at {well_known_url}")
 
     auth_server_url = auth_servers[0].rstrip("/")
-    token_url = f"{auth_server_url}/protocol/openid-connect/token"
+
+    # Discover token endpoint from OIDC configuration
+    oidc_config_url = f"{auth_server_url}/.well-known/openid-configuration"
+    logger.debug(f"Fetching OIDC configuration from {oidc_config_url}")
+    oidc_resp = http_requests.get(oidc_config_url, verify=verify_ssl, timeout=10)
+    oidc_resp.raise_for_status()
+    oidc_config = oidc_resp.json()
+
+    token_url = oidc_config.get("token_endpoint")
+    if not token_url:
+        raise ValueError(f"No token_endpoint found in OIDC configuration at {oidc_config_url}")
 
     logger.debug(f"Requesting token via client_credentials at {token_url}")
     token_resp = http_requests.post(

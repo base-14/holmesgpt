@@ -49,6 +49,12 @@ class ScoutConfig(ToolsetConfig):
     )
 
 
+def _raise_http_error(step: str, url: str, resp: http_requests.Response) -> None:
+    """Raise a ValueError with detailed HTTP error context for OAuth failures."""
+    body = resp.text[:500] if resp.text else ""
+    raise ValueError(f"{step} failed: HTTP {resp.status_code} from {url}: {body}")
+
+
 def _obtain_token_via_client_credentials(
     api_url: str, client_id: str, client_secret: str, verify_ssl: bool
 ) -> str:
@@ -64,7 +70,8 @@ def _obtain_token_via_client_credentials(
 
     logger.debug(f"Discovering OAuth endpoint from {well_known_url}")
     resp = http_requests.get(well_known_url, verify=verify_ssl, timeout=10)
-    resp.raise_for_status()
+    if not resp.ok:
+        _raise_http_error("OAuth resource discovery", well_known_url, resp)
     metadata = resp.json()
 
     auth_servers = metadata.get("authorization_servers", [])
@@ -77,7 +84,8 @@ def _obtain_token_via_client_credentials(
     oidc_config_url = f"{auth_server_url}/.well-known/openid-configuration"
     logger.debug(f"Fetching OIDC configuration from {oidc_config_url}")
     oidc_resp = http_requests.get(oidc_config_url, verify=verify_ssl, timeout=10)
-    oidc_resp.raise_for_status()
+    if not oidc_resp.ok:
+        _raise_http_error("OIDC discovery", oidc_config_url, oidc_resp)
     oidc_config = oidc_resp.json()
 
     token_url = oidc_config.get("token_endpoint")
@@ -96,7 +104,8 @@ def _obtain_token_via_client_credentials(
         verify=verify_ssl,
         timeout=10,
     )
-    token_resp.raise_for_status()
+    if not token_resp.ok:
+        _raise_http_error("Token exchange", token_url, token_resp)
     token_data = token_resp.json()
 
     access_token = token_data.get("access_token")
@@ -126,20 +135,23 @@ class ScoutToolset(RemoteMCPToolset):
         if not config:
             config = {}
 
-        # Fall back to environment variables
+        # Fall back to environment variables only for fields not already in config.
+        # Auth fields (api_token, client_id, client_secret) are only populated from
+        # env vars if no auth mode is explicitly configured, to prevent env vars from
+        # silently overriding an explicit auth choice.
         if not config.get("api_url"):
             env_url = os.environ.get("SCOUT_API_URL")
             if env_url:
                 config["api_url"] = env_url
-        if not config.get("api_token"):
+
+        has_explicit_auth = config.get("api_token") or config.get("client_id") or config.get("client_secret")
+        if not has_explicit_auth:
             env_token = os.environ.get("SCOUT_API_TOKEN")
             if env_token:
                 config["api_token"] = env_token
-        if not config.get("client_id"):
             env_cid = os.environ.get("SCOUT_CLIENT_ID")
             if env_cid:
                 config["client_id"] = env_cid
-        if not config.get("client_secret"):
             env_csec = os.environ.get("SCOUT_CLIENT_SECRET")
             if env_csec:
                 config["client_secret"] = env_csec

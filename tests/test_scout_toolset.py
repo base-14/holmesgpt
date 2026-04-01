@@ -1,8 +1,18 @@
+import os
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from holmes.plugins.toolsets.scout.toolset_scout import ScoutConfig, ScoutToolset
+
+_has_scout_credentials = bool(
+    os.environ.get("SCOUT_API_URL")
+    and (
+        os.environ.get("SCOUT_API_TOKEN")
+        or (os.environ.get("SCOUT_CLIENT_ID") and os.environ.get("SCOUT_CLIENT_SECRET"))
+    )
+)
 
 
 class TestScoutConfig:
@@ -27,7 +37,7 @@ class TestScoutConfig:
         assert config.api_token is None
 
     def test_api_url_required(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ScoutConfig(api_token="test-token")
 
     def test_default_mode_is_streamable_http(self):
@@ -114,3 +124,20 @@ class TestScoutToolset:
                 assert ok is True
                 mcp_config = mock_parent.call_args[0][0]
                 assert mcp_config["headers"]["Authorization"] == "Bearer client-creds-token"
+
+
+@pytest.mark.skipif(not _has_scout_credentials, reason="Scout credentials not set in environment")
+class TestScoutIntegration:
+    def test_prerequisites_against_live_instance(self):
+        """End-to-end test: connects to a real Scout instance, discovers tools."""
+        config = {"api_url": os.environ["SCOUT_API_URL"]}
+        if os.environ.get("SCOUT_API_TOKEN"):
+            config["api_token"] = os.environ["SCOUT_API_TOKEN"]
+        else:
+            config["client_id"] = os.environ["SCOUT_CLIENT_ID"]
+            config["client_secret"] = os.environ["SCOUT_CLIENT_SECRET"]
+
+        toolset = ScoutToolset()
+        ok, msg = toolset.prerequisites_callable(config)
+        assert ok is True, f"prerequisites_callable failed: {msg}"
+        assert len(toolset.tools) > 0, "No tools discovered from Scout MCP server"

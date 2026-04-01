@@ -118,15 +118,14 @@ def _obtain_token_via_client_credentials(
 class ScoutToolset(RemoteMCPToolset):
     config_classes: ClassVar[list[Type[ScoutConfig]]] = [ScoutConfig]
 
-    def __init__(self):
-        super().__init__(
-            name="base14/scout",
-            description="base14 Scout observability platform - query services, traces, logs, metrics, and alerts",
-            icon_url="https://scout.base14.io/favicon.ico",
-            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/base14-scout/",
-            tags=[ToolsetTag.CORE],
-            enabled=False,
-        )
+    def __init__(self, **data: Any) -> None:
+        data.setdefault("name", "base14/scout")
+        data.setdefault("description", "base14 Scout observability platform - query services, traces, logs, metrics, and alerts")
+        data.setdefault("icon_url", "https://scout.base14.io/favicon.ico")
+        data.setdefault("docs_url", "https://holmesgpt.dev/data-sources/builtin-toolsets/base14-scout/")
+        data.setdefault("tags", [ToolsetTag.CORE])
+        data.setdefault("enabled", False)
+        super().__init__(**data)
         self._load_llm_instructions_from_file(
             os.path.dirname(__file__), "toolset_scout.jinja2"
         )
